@@ -1,6 +1,15 @@
 #!/usr/bin/env python3
 
-import json
+
+# import sys
+# import errno
+  
+# try:
+#     for i in range(4000):
+#         print(i)
+# except IOError as e:
+#     if e.errno == errno.EPIPE:
+#       pass
 import socket
 import argparse
 from urllib.parse import urlparse
@@ -12,20 +21,7 @@ user = "bandaruan"
 password = "oqWRt9FHQjhAXxBkMb06"
 path = ""
 clientSocket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-# "ftp://" + user + ":" + password + "@" + HOST + ":" + str(PORT) + "/" + "\r\n"
-# ./3700ftp mkdir ftp://bandaruan:oqWRt9FHQjhAXxBkMb06@ftp.3700.network:21/
-
-def parse_url(surl):
-    output = urlparse(surl)
-    global user, password, HOST, PORT, path
-
-    user = output.username
-    password = output.password
-    HOST = output.hostname
-    path = output.path
-    print(user, password, HOST, PORT, path)
-# parse_url('ftp://bandaruan:oqWRt9FHQjhAXxBkMb06@ftp.3700.network:21/')
-
+dataSocket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 
 def login():
     # create socket and connect to server
@@ -46,7 +42,6 @@ def login():
     mes = "TYPE I" + "\r\n"
     clientSocket.sendall(mes.encode("utf-8"))
     data = clientSocket.recv(10000)
-    # GameID = json.loads(data)["id"]
     start_data = data.decode("utf-8")
     print(start_data)
 
@@ -60,79 +55,117 @@ def login():
     clientSocket.sendall(mes.encode("utf-8"))
     data = clientSocket.recv(10000)
     start_data = data.decode("utf-8")
-    print(start_data)
 
-# 
+def parse_url(surl):
+    output = urlparse(surl)
+    global user, password, HOST, PORT, path
+
+    user = output.username
+    password = output.password
+    HOST = output.hostname
+    path = output.path
+    print(user, password, HOST, PORT, path)
+    login()
+
+# open data socket
 def pasv():
-    mes = "PASV\r\n"
-    clientSocket.sendall(mes.encode("utf-8"))
-    data = clientSocket.recv(10000)
+    mes1 = f"PASV\r\n"
+    clientSocket.send(mes1.encode())
+    print("sends")
+    data = clientSocket.recv(4096)
+    print("message")
     start_data = data.decode("utf-8")
-    print(start_data)
+    print(data)
+    if "(" in start_data:
+        numbers = start_data.split("(")
+        print(numbers)
+        numbers = numbers[1].split(")")
+        numbers = numbers[0].split(",")
+        data_host = str(".".join(numbers[0:4]))
+        if len(numbers) >= 6:
+            data_port = (int(numbers[4]) << 8) + int(numbers[5])
+        print(data_host, data_port)
+        dataSocket.connect((data_host, int(data_port))) # connect to data socket
+        # send the data and then close it
+        print("works")
 
-    numbers = start_data.split("(")
-    numbers = numbers[1].split(")")
-    numbers = numbers[0].split(",")
-    print(numbers)
 
-
-
-
+# list path
 def list(p):
     pasv()
     mes = "LIST "  + p + "\r\n"
     clientSocket.sendall(mes.encode("utf-8"))
-    data = clientSocket.recv(10000)
+    print(clientSocket.recv(10000).decode("utf-8"))
+    data = dataSocket.recv(10000)
+    dataSocket.close()
     start_data = data.decode("utf-8")
     print(start_data)
+    clientSocket.close()
 
-def upload(p):
+# upload file to FTP
+def upload(ftpfile, local):
     pasv()
-    mes = "STOR " + p + "\r\n"
-    clientSocket.sendall(mes.encode("utf-8"))
-    data = clientSocket.recv(10000)
-    start_data = data.decode("utf-8")
-    print(start_data)
+    mes = "STOR " + ftpfile + "\r\n"
+    clientSocket.sendall(mes.encode())
+    f = open(local, "rb") # open and read a local file
+    byte = f.read()
+    sendtosocket(byte)
+    dataSocket.close()
+    clientSocket.close()
+    print('done')
+def sendtosocket(byte):
+    print(byte)
+    dataSocket.sendall(byte)
 
-    #open file, read, send bytes to data socket
-    # file.read
-    # help with required command line
 
-def download(p):
+
+# download file from FTP
+def download(ftpfile, localfile):
     pasv()
-    mes = "RETR " + p + "\r\n"
+    mes = f"RETR " + ftpfile + "\r\n" # src: ftp path
     clientSocket.sendall(mes.encode("utf-8"))
-    data = clientSocket.recv(10000)
+    print(clientSocket.recv(10000))
+    data = dataSocket.recv(10000)
+    dataSocket.close()
     start_data = data.decode("utf-8")
-    print(start_data)
+    f = open(localfile, 'wb')
+    f.write(start_data)
+    f.close()
+    dataSocket.close()
+    clientSocket.close()
 
-
-
+# make directory
 def makedir(p):
     mes = "MKD " + p + "\r\n"
     clientSocket.sendall(mes.encode("utf-8"))
     data = clientSocket.recv(10000)
+    clientSocket.close()
     start_data = data.decode("utf-8")
     print(start_data)
     print(p)
+    clientSocket.close()
 
-
+# remove directory
 def removedir(p):
+    print(p)
     mes = "RMD " + p + "\r\n"
     clientSocket.sendall(mes.encode("utf-8"))
     data = clientSocket.recv(10000)
     start_data = data.decode("utf-8")
     print(start_data)
+    clientSocket.close()
 
-
+# remove file
 def remfile(p):
     mes = "DELE " + p + "\r\n"
     clientSocket.sendall(mes.encode("utf-8"))
     data = clientSocket.recv(10000)
+    clientSocket.close()
     start_data = data.decode("utf-8")
     print(start_data)
+    clientSocket.close()
 
-
+# quit server
 def quitserver():
     mes = "QUIT\r\n"
     clientSocket.sendall(mes.encode("utf-8"))
@@ -140,9 +173,7 @@ def quitserver():
     start_data = data.decode("utf-8")
     print(start_data)
 
-# ls, mkdir, rm, rmdir, cp, and mv
-# reads command script and parse urls in 
-# this format: ftp://[USER[:PASSWORD]@]HOST[:PORT]/PATH
+# follows the operations: ls, mkdir, rm, rmdir, cp, and mv
 def get_args():
     # Create the parser
     parser = argparse.ArgumentParser()
@@ -150,35 +181,39 @@ def get_args():
     parser.add_argument('operation', type=str, choices=['ls', 'mkdir', 'rm', 'rmdir', 'cp', 'mv'])
     parser.add_argument('param1', type=str)
     parser.add_argument('param2', type=str, nargs='?')
-    # parser.add_argument('param2', type=str, required = False)
-    # Array for all arguments passed to script
-    args = parser.parse_args()
-    args = vars(args)
+
+    # reads command script and parse urls in this format: 
+    # ftp://[USER[:PASSWORD]@]HOST[:PORT]/PATH
+    args = parser.parse_args() 
+    args = vars(args) # Array for all arguments passed to commmand script
     print(args)
     if args['operation'] == 'ls':
         parse_url(args['param1'])
-        login() # connect to server
         list(path)
     if args['operation'] == 'mkdir':
         parse_url(args['param1'])
-        login()
         makedir(path)
     if args['operation'] == 'rm':
         parse_url(args['param1'])
-        login()
         remfile(path)
     if args['operation'] == 'rmdir':
         parse_url(args['param1'])
-        login()
         removedir(path)
     if args['operation'] == 'cp':
-        parse_url(args['param1'])
-        login()
-        upload(path)
+        print((args['param1'])[0:4])
+        if (args['param1'])[0:4] != "ftp:":
+            parse_url(args['param2'])
+            upload(path, str(args['param1']))
+        if (args['param1'])[0:4] == "ftp:":
+            parse_url(args['param1'])
+            download(path, str(args['param2']))
     if args['operation'] == 'mv':
-        parse_url(args['param1'])
-        login()
-        download(path)
-        upload(path)
-
+        if (args['param1'])[0:4] != "ftp:":
+            parse_url(args['param1'])
+            remfile(path)
+            download(args['param1'], path)
+        if (args['param2'])[0:4] == "ftp":
+            parse_url(args['param2'])
+            remfile(path)
+            download(args['param2'], path)
 get_args()
