@@ -1,7 +1,7 @@
 Using TCP Socket Programming to solve a wordle riddle
 
 Approach:
-I wrote this program in Python. The program will run on a given port and host and build a socket connectiion tot he FTP server. Based on what the command script specifies, we added functionality for removing, copying, moving, files and directions, as well as list your directory for degbbing. After connecting to the server using a TCP socket, and a customized username and password, we can perform one operation relating to the FTP.
+The program will run on a given port and host and build a socket connectiion to the FTP server. Based on what the command script specifies, we added functionality for removing, copying, moving, files and directions, as well as list your directory for degbbing. After connecting to the server using a TCP socket, and a customized username and password, we can perform one operation relating to the FTP.
 
 <!-- reads command script and parse urls in this format: 
 ftp://[USER[:PASSWORD]@]HOST[:PORT]/PATH -->
